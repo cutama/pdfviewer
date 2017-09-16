@@ -1,0 +1,26 @@
+{
+  "name": "pdfviewer",
+  "version": "1.0.0",
+  "description": "PDF Viewer Component",
+  "main": "dist/pdfviewer.js",
+  "scripts": {
+    "start": "webpack-dev-server --progress --colors --open"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^1.9.568",
+    "prop-types": "^15.5.10",
+    "react": "^15.6.1",
+    "react-dom": "^15.6.1"
+  },
+  "devDependencies": {
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.2",
+    "babel-plugin-transform-class-properties": "^6.24.1",
+    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-react": "^6.24.1",
+    "path": "^0.12.7",
+    "raw-loader": "^0.5.1",
+    "webpack": "^3.6.0",
+    "webpack-dev-server": "^2.8.2"
+  }
+}
