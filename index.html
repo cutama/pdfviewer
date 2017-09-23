@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <title>PDF Viewer Test Page</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react-dom.js"></script>
     <script src="dist/pdfviewer.js" type="text/javascript"></script>
@@ -11,7 +12,7 @@
     <div id="container"></div>
     <script>
       ReactDOM.render(
-        React.createElement(window.PdfViewer.default, {file: "samples/simple.pdf"}, null), 
+        React.createElement(window.PdfViewer.default, {file: "samples/test.pdf"}, null), 
         document.getElementById('container')
       );
     </script>
