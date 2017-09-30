@@ -20,13 +20,17 @@ module.exports = {
     rules: [
       {
         test: /pdf\.worker(\.min)?\.js$/,
-        use: 'raw-loader',
+        use: 'raw-loader'
       },
       {
-        test: /\.(js|jsx)$/,
+        test: /\.jsx?$/,
         exclude: [/node_modules/, /pdf\.worker(\.min)?\.js$/],
-        use: 'babel-loader',
+        use: 'babel-loader'
       },
+      {
+        test: /\.styl$/,
+        use: ['style-loader', 'css-loader', 'stylus-loader']
+      }
     ],
   }
 }

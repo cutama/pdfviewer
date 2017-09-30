@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import PropTypes from 'prop-types';
 
 require('pdfjs-dist');
@@ -21,7 +22,6 @@ export default class PdfDocument extends React.Component {
     loading: PropTypes.any,
     page: PropTypes.number,
     scale: PropTypes.number,
-    rotate: PropTypes.number,
     onDocumentComplete: PropTypes.func,
     onDocumentError: PropTypes.func,
     onPageComplete: PropTypes.func,
@@ -31,14 +31,18 @@ export default class PdfDocument extends React.Component {
 
   static defaultProps = {
     page: 1,
-    scale: 1.0,
+    scale: 0.0,
   };
 
   state = {};
 
   componentDidMount() {
+    const parentNode = ReactDOM.findDOMNode(this).parentNode;
+    this.setState({
+      containerWidth: parentNode.offsetWidth,
+      containerHeight: parentNode.offsetHeight
+    });
     this.loadPDFDocument(this.props);
-    this.renderPdf();
   }
 
   componentWillReceiveProps(newProps) {
@@ -59,8 +63,7 @@ export default class PdfDocument extends React.Component {
     }
 
     if (pdf && ((newProps.page && newProps.page !== this.props.page) ||
-      (newProps.scale && newProps.scale !== this.props.scale) ||
-      (newProps.rotate && newProps.rotate !== this.props.rotate))) {
+      (newProps.scale && newProps.scale !== this.props.scale))) {
       this.setState({ page: null });
       pdf.getPage(newProps.page).then(this.onPageComplete);
     }
@@ -142,18 +145,32 @@ export default class PdfDocument extends React.Component {
   }
 
   renderPdf = () => {
-    const { page } = this.state;
+    //console.log('containerWidth', this.state.containerWidth);
+    //console.log('containerHeight', this.state.containerHeight);
+
+    const { page, containerWidth, containerHeight } = this.state;
     if (page) {
       const { canvas } = this;
       const canvasContext = canvas.getContext('2d');
       const dpiScale = window.devicePixelRatio || 1;
-      const { scale, rotate } = this.props;
+
+      let { scale } = this.props;
+      if (Math.abs(scale) < 1.0e-4) {
+        const unscaledViewport = page.getViewport(1.0);
+        const ratioViewport = unscaledViewport.width / unscaledViewport.height;
+        const ratioContainer = this.state.containerWidth / this.state.containerHeight;
+        scale = ratioContainer >= ratioViewport ? this.state.containerHeight / unscaledViewport.height :
+          this.state.containerWidth / unscaledViewport.width;
+      }
+
       const adjustedScale = scale * dpiScale;
-      const viewport = page.getViewport(adjustedScale, rotate);
+      const viewport = page.getViewport(adjustedScale);
+
       canvas.style.width = `${viewport.width / dpiScale}px`;
       canvas.style.height = `${viewport.height / dpiScale}px`;
       canvas.height = viewport.height;
       canvas.width = viewport.width;
+
       page.render({ canvasContext, viewport });
     }
   }
@@ -164,8 +181,7 @@ export default class PdfDocument extends React.Component {
     return page ?
       <canvas
         ref={(c) => { this.canvas = c; }}
-        className={this.props.className}
-        style={this.props.style}
+        className='ba-pdf-viewer-canvas'
       /> :
       loading || <div>Loading PDF...</div>;
   }

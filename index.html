@@ -4,9 +4,21 @@
     <meta charset="utf-8">
     <title>PDF Viewer Test Page</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"/>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react-dom.js"></script>
+    <script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
     <script src="dist/pdfviewer.js" type="text/javascript"></script>
+
+    <style type="text/css">
+			#container {
+				position: absolute;
+				left: 100px;
+				top: 30px;
+				width: 70%;
+				height: 70%;
+				background-color: rgb(248, 248, 248); 
+				overflow: hidden;
+			}
+		</style>
   </head>
   <body>
     <div id="container"></div>

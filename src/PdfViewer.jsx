@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import PdfDocument from './PdfDocument.jsx'
+import './PdfViewer.styl'
 
 export default class PdfViewer extends React.Component {
     static propTypes = {
@@ -35,12 +36,12 @@ export default class PdfViewer extends React.Component {
         nextButton = <li className="next disabled">Next <i className="fa fa-arrow-right"></i></li>;
       }
       return (
-        <nav>
-          <ul className="pager">
+        <div className='ba-pdf-viewer-tool' key='tool'>
+          <ul className='pager'>
             {previousButton}
             {nextButton}
           </ul>
-        </nav>
+        </div>
         );
     }
   
@@ -49,11 +50,14 @@ export default class PdfViewer extends React.Component {
       if (this.state.pages) {
         pagination = this.renderPagination(this.state.page, this.state.pages);
       }
-      return (
-        <div>
-          {pagination}
-          <PdfDocument file={this.props.file} onDocumentComplete={this.onDocumentComplete} onPageComplete={this.onPageComplete} page={this.state.page} />
-        </div>
-      )
+      return ([
+          pagination,
+          <PdfDocument key='pdf'
+            file={this.props.file} 
+            onDocumentComplete={this.onDocumentComplete} 
+            onPageComplete={this.onPageComplete} 
+            page={this.state.page}
+          />
+      ]);
     }
 }
