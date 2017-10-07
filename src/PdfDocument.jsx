@@ -30,18 +30,24 @@ export default class PdfDocument extends React.Component {
   };
 
   static defaultProps = {
-    page: 1,
-    scale: 0.0,
+    page: 1
   };
 
-  state = {};
+  state = {}
+
+  constructor(props) {
+    super(props);
+    this.onMouseDown = this._onMouseDown.bind(this);
+    this.onMouseMove = this._onMouseMove.bind(this);
+    this.onMouseUp = this._onMouseUp.bind(this);
+    this.onMouseWheel = this._onMouseWheel.bind(this);
+  }
 
   componentDidMount() {
-    const parentNode = ReactDOM.findDOMNode(this).parentNode;
-    this.setState({
-      containerWidth: parentNode.offsetWidth,
-      containerHeight: parentNode.offsetHeight
-    });
+    this.container = ReactDOM.findDOMNode(this).parentNode;
+    this.container.addEventListener('mousedown', this.onMouseDown, false);
+    this.container.addEventListener('mousewheel', this.onMouseWheel, false);
+    this.container.addEventListener('DOMMouseScroll', this.onMouseWheel, false);
     this.loadPDFDocument(this.props);
   }
 
@@ -148,31 +154,144 @@ export default class PdfDocument extends React.Component {
     //console.log('containerWidth', this.state.containerWidth);
     //console.log('containerHeight', this.state.containerHeight);
 
-    const { page, containerWidth, containerHeight } = this.state;
+    const { page } = this.state;
     if (page) {
+      const containerWidth = this.container.offsetWidth;
+      const containerHeight = this.container.offsetHeight;
       const { canvas } = this;
       const canvasContext = canvas.getContext('2d');
       const dpiScale = window.devicePixelRatio || 1;
 
-      let { scale } = this.props;
-      if (Math.abs(scale) < 1.0e-4) {
-        const unscaledViewport = page.getViewport(1.0);
-        const ratioViewport = unscaledViewport.width / unscaledViewport.height;
-        const ratioContainer = this.state.containerWidth / this.state.containerHeight;
-        scale = ratioContainer >= ratioViewport ? this.state.containerHeight / unscaledViewport.height :
-          this.state.containerWidth / unscaledViewport.width;
-      }
-
+      const unscaledViewport = page.getViewport(1.0);
+      const ratioViewport = unscaledViewport.width / unscaledViewport.height;
+      const ratioContainer = containerWidth / containerHeight;
+      let scale = ratioContainer >= ratioViewport ? containerHeight / unscaledViewport.height :
+        containerWidth / unscaledViewport.width;
+      
       const adjustedScale = scale * dpiScale;
+      this.originalScale = adjustedScale;
       const viewport = page.getViewport(adjustedScale);
 
       canvas.style.width = `${viewport.width / dpiScale}px`;
       canvas.style.height = `${viewport.height / dpiScale}px`;
+      canvas.style.left = 0 + 'px';
+      canvas.style.top = 0 + 'px';
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      page.render({ canvasContext, viewport });
+      this.rendering = true;
+      this.renderTask = page.render({ canvasContext, viewport });
+      this.renderTask.promise.then(result => {
+        this.rendering = false;
+      });
+      this.renderTask.promise.catch(reason => {
+        console.log("Rendering error:", reason);
+        this.rendering = false;
+      });
     }
+  }
+
+  pan(dx, dy) {
+    if (this.state.page) {
+      const { canvas } = this;
+      canvas.style.left = (canvas.offsetLeft + dx) + 'px';
+      canvas.style.top = (canvas.offsetTop + dy) + 'px';
+    }
+  }
+
+  zoom(factor, cx, cy) {
+    const { page } = this.state;
+    if (page) {
+      if (this.rendering) {
+        return;
+      }
+      const { canvas } = this;
+      const dpiScale = window.devicePixelRatio || 1;
+      let scale = (1 + factor) * dpiScale;
+      let newWidth = scale * canvas.offsetWidth;
+      let newHeight = scale * canvas.offsetHeight;
+
+      let rect = this.container.getBoundingClientRect();
+      cx -= rect.left;
+      cy -= rect.top;
+
+      let ox = cx - this.canvas.offsetLeft;
+      let oy = cy - this.canvas.offsetTop;
+
+      let dx = factor * ox;
+      let dy = factor * oy;
+      this.pan(-dx, -dy);
+
+      canvas.style.width = `${newWidth / dpiScale}px`;
+      canvas.style.height = `${newHeight / dpiScale}px`;
+
+      const canvasContext = canvas.getContext('2d');
+      const viewport = page.getViewport(scale * this.originalScale);
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      this.rendering = true;
+      this.renderTask = page.render({ canvasContext, viewport });
+      this.renderTask.promise.then(result => {
+        this.rendering = false;
+      });
+      this.renderTask.promise.catch(reason => {
+        console.log("Rendering error:", reason);
+        this.rendering = false;
+      });
+    }
+  }
+
+  _onMouseDown(event) {
+    event.preventDefault();
+    this.mouseDownAndMoved = false;
+
+    this.mouseButton = event.button;
+
+    this.mouseDownPos = { x: event.clientX, y: event.clientY };
+    this.oldMousePos = { x: event.clientX, y: event.clientY };
+
+    if (event.button === 0) {
+      window.addEventListener('mousemove', this.onMouseMove, false);
+      window.addEventListener('mouseup', this.onMouseUp, false);
+    }
+  }
+
+  _onMouseMove(event) {
+    event.preventDefault();
+
+    if (this.mouseButton === 0) {
+      var dx = event.clientX - this.oldMousePos.x;
+      var dy = event.clientY - this.oldMousePos.y;
+      if (dx !== 0 || dy !== 0) {
+        this.mouseDownAndMoved = true;
+        this.pan(dx, dy);
+      }
+    }
+    this.oldMousePos.x = event.clientX;
+    this.oldMousePos.y = event.clientY;
+  }
+
+  _onMouseUp(event) {
+    window.removeEventListener('mousemove', this.onMouseMove, false);
+    window.removeEventListener('mouseup', this.onMouseUp, false);
+  }
+
+  _onMouseWheel(event) {
+    event.preventDefault();
+
+    let deltaY = 0;
+    if (event.wheelDelta) {
+      deltaY = -event.wheelDelta / 120;
+      if (window.opera) {
+        deltaY = -deltaY;
+      }
+    } else if (event.detail) {
+      deltaY = event.detail;
+    }
+
+    let factor = deltaY > 0 ? -0.1 : 0.1;
+    this.zoom(factor, event.clientX, event.clientY);
   }
 
   render() {
@@ -192,7 +311,7 @@ const makeCancelable = (promise) => {
 
   const wrappedPromise = new Promise((resolve, reject) => {
     promise.then(val => (
-      hasCanceled ? reject({ pdf: val, isCanceled: true }) : resolve(val)
+      hasCanceled ? reject({ isCanceled: true }) : resolve(val)
     ));
     promise.catch(error => (
       hasCanceled ? reject({ isCanceled: true }) : reject(error)

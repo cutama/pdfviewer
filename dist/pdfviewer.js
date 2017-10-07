@@ -6979,118 +6979,27 @@ PDFJS.workerSrc = pdfjsWorkerBlobURL;
 var PdfDocument = function (_React$Component) {
   _inherits(PdfDocument, _React$Component);
 
-  function PdfDocument() {
-    var _ref;
-
-    var _temp, _this, _ret;
-
+  function PdfDocument(props) {
     _classCallCheck(this, PdfDocument);
 
-    for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-      args[_key] = arguments[_key];
-    }
+    var _this = _possibleConstructorReturn(this, (PdfDocument.__proto__ || Object.getPrototypeOf(PdfDocument)).call(this, props));
 
-    return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = PdfDocument.__proto__ || Object.getPrototypeOf(PdfDocument)).call.apply(_ref, [this].concat(args))), _this), _this.state = {}, _this.onDocumentComplete = function (pdf) {
-      _this.setState({ pdf: pdf });
-      var onDocumentComplete = _this.props.onDocumentComplete;
+    _initialiseProps.call(_this);
 
-      if (typeof onDocumentComplete === 'function') {
-        onDocumentComplete(pdf.numPages);
-      }
-      pdf.getPage(_this.props.page).then(_this.onPageComplete);
-    }, _this.onDocumentError = function (err) {
-      if (err.isCanceled && err.pdf) {
-        err.pdf.destroy();
-      }
-      if (typeof _this.props.onDocumentError === 'function') {
-        _this.props.onDocumentError(err);
-      }
-    }, _this.onPageComplete = function (page) {
-      _this.setState({ page: page });
-      _this.renderPdf();
-      var onPageComplete = _this.props.onPageComplete;
-
-      if (typeof onPageComplete === 'function') {
-        onPageComplete(page.pageIndex + 1);
-      }
-    }, _this.getDocument = function (val) {
-      if (_this.documentPromise) {
-        _this.documentPromise.cancel();
-      }
-      _this.documentPromise = makeCancelable(PDFJS.getDocument(val).promise);
-      _this.documentPromise.promise.then(_this.onDocumentComplete).catch(_this.onDocumentError);
-      return _this.documentPromise;
-    }, _this.loadPDFDocument = function (props) {
-      if (props.file) {
-        if (typeof props.file === 'string') {
-          // Is a URL
-          return _this.getDocument(props.file);
-        }
-        // Is a File object
-        var reader = new FileReader();
-        reader.onloadend = function () {
-          return _this.getDocument(new Uint8Array(reader.result));
-        };
-        reader.readAsArrayBuffer(props.file);
-      } else if (props.binaryContent) {
-        _this.getDocument(props.binaryContent);
-      } else if (props.content) {
-        var bytes = window.atob(props.content);
-        var byteLength = bytes.length;
-        var byteArray = new Uint8Array(new ArrayBuffer(byteLength));
-        for (var index = 0; index < byteLength; index += 1) {
-          byteArray[index] = bytes.charCodeAt(index);
-        }
-        _this.getDocument(byteArray);
-      } else {
-        throw new Error('Needs a file(URL) or (base64)content. At least one needs to be provided!');
-      }
-    }, _this.renderPdf = function () {
-      //console.log('containerWidth', this.state.containerWidth);
-      //console.log('containerHeight', this.state.containerHeight);
-
-      var _this$state = _this.state,
-          page = _this$state.page,
-          containerWidth = _this$state.containerWidth,
-          containerHeight = _this$state.containerHeight;
-
-      if (page) {
-        var _this2 = _this,
-            canvas = _this2.canvas;
-
-        var canvasContext = canvas.getContext('2d');
-        var dpiScale = window.devicePixelRatio || 1;
-
-        var scale = _this.props.scale;
-
-        if (Math.abs(scale) < 1.0e-4) {
-          var unscaledViewport = page.getViewport(1.0);
-          var ratioViewport = unscaledViewport.width / unscaledViewport.height;
-          var ratioContainer = _this.state.containerWidth / _this.state.containerHeight;
-          scale = ratioContainer >= ratioViewport ? _this.state.containerHeight / unscaledViewport.height : _this.state.containerWidth / unscaledViewport.width;
-        }
-
-        var adjustedScale = scale * dpiScale;
-        var viewport = page.getViewport(adjustedScale);
-
-        canvas.style.width = viewport.width / dpiScale + 'px';
-        canvas.style.height = viewport.height / dpiScale + 'px';
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        page.render({ canvasContext: canvasContext, viewport: viewport });
-      }
-    }, _temp), _possibleConstructorReturn(_this, _ret);
+    _this.onMouseDown = _this._onMouseDown.bind(_this);
+    _this.onMouseMove = _this._onMouseMove.bind(_this);
+    _this.onMouseUp = _this._onMouseUp.bind(_this);
+    _this.onMouseWheel = _this._onMouseWheel.bind(_this);
+    return _this;
   }
 
   _createClass(PdfDocument, [{
     key: 'componentDidMount',
     value: function componentDidMount() {
-      var parentNode = _reactDom2.default.findDOMNode(this).parentNode;
-      this.setState({
-        containerWidth: parentNode.offsetWidth,
-        containerHeight: parentNode.offsetHeight
-      });
+      this.container = _reactDom2.default.findDOMNode(this).parentNode;
+      this.container.addEventListener('mousedown', this.onMouseDown, false);
+      this.container.addEventListener('mousewheel', this.onMouseWheel, false);
+      this.container.addEventListener('DOMMouseScroll', this.onMouseWheel, false);
       this.loadPDFDocument(this.props);
     }
   }, {
@@ -7127,6 +7036,120 @@ var PdfDocument = function (_React$Component) {
       if (this.documentPromise) {
         this.documentPromise.cancel();
       }
+    }
+  }, {
+    key: 'pan',
+    value: function pan(dx, dy) {
+      if (this.state.page) {
+        var canvas = this.canvas;
+
+        canvas.style.left = canvas.offsetLeft + dx + 'px';
+        canvas.style.top = canvas.offsetTop + dy + 'px';
+      }
+    }
+  }, {
+    key: 'zoom',
+    value: function zoom(factor, cx, cy) {
+      var _this2 = this;
+
+      var page = this.state.page;
+
+      if (page) {
+        if (this.rendering) {
+          return;
+        }
+        var canvas = this.canvas;
+
+        var dpiScale = window.devicePixelRatio || 1;
+        var scale = (1 + factor) * dpiScale;
+        var newWidth = scale * canvas.offsetWidth;
+        var newHeight = scale * canvas.offsetHeight;
+
+        var rect = this.container.getBoundingClientRect();
+        cx -= rect.left;
+        cy -= rect.top;
+
+        var ox = cx - this.canvas.offsetLeft;
+        var oy = cy - this.canvas.offsetTop;
+
+        var dx = factor * ox;
+        var dy = factor * oy;
+        this.pan(-dx, -dy);
+
+        canvas.style.width = newWidth / dpiScale + 'px';
+        canvas.style.height = newHeight / dpiScale + 'px';
+
+        var canvasContext = canvas.getContext('2d');
+        var viewport = page.getViewport(scale * this.originalScale);
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        this.rendering = true;
+        this.renderTask = page.render({ canvasContext: canvasContext, viewport: viewport });
+        this.renderTask.promise.then(function (result) {
+          _this2.rendering = false;
+        });
+        this.renderTask.promise.catch(function (reason) {
+          console.log("Rendering error:", reason);
+          _this2.rendering = false;
+        });
+      }
+    }
+  }, {
+    key: '_onMouseDown',
+    value: function _onMouseDown(event) {
+      event.preventDefault();
+      this.mouseDownAndMoved = false;
+
+      this.mouseButton = event.button;
+
+      this.mouseDownPos = { x: event.clientX, y: event.clientY };
+      this.oldMousePos = { x: event.clientX, y: event.clientY };
+
+      if (event.button === 0) {
+        window.addEventListener('mousemove', this.onMouseMove, false);
+        window.addEventListener('mouseup', this.onMouseUp, false);
+      }
+    }
+  }, {
+    key: '_onMouseMove',
+    value: function _onMouseMove(event) {
+      event.preventDefault();
+
+      if (this.mouseButton === 0) {
+        var dx = event.clientX - this.oldMousePos.x;
+        var dy = event.clientY - this.oldMousePos.y;
+        if (dx !== 0 || dy !== 0) {
+          this.mouseDownAndMoved = true;
+          this.pan(dx, dy);
+        }
+      }
+      this.oldMousePos.x = event.clientX;
+      this.oldMousePos.y = event.clientY;
+    }
+  }, {
+    key: '_onMouseUp',
+    value: function _onMouseUp(event) {
+      window.removeEventListener('mousemove', this.onMouseMove, false);
+      window.removeEventListener('mouseup', this.onMouseUp, false);
+    }
+  }, {
+    key: '_onMouseWheel',
+    value: function _onMouseWheel(event) {
+      event.preventDefault();
+
+      var deltaY = 0;
+      if (event.wheelDelta) {
+        deltaY = -event.wheelDelta / 120;
+        if (window.opera) {
+          deltaY = -deltaY;
+        }
+      } else if (event.detail) {
+        deltaY = event.detail;
+      }
+
+      var factor = deltaY > 0 ? -0.1 : 0.1;
+      this.zoom(factor, event.clientX, event.clientY);
     }
   }, {
     key: 'render',
@@ -7168,9 +7191,122 @@ PdfDocument.propTypes = {
   style: _propTypes2.default.object
 };
 PdfDocument.defaultProps = {
-  page: 1,
-  scale: 0.0
+  page: 1
 };
+
+var _initialiseProps = function _initialiseProps() {
+  var _this4 = this;
+
+  this.state = {};
+
+  this.onDocumentComplete = function (pdf) {
+    _this4.setState({ pdf: pdf });
+    var onDocumentComplete = _this4.props.onDocumentComplete;
+
+    if (typeof onDocumentComplete === 'function') {
+      onDocumentComplete(pdf.numPages);
+    }
+    pdf.getPage(_this4.props.page).then(_this4.onPageComplete);
+  };
+
+  this.onDocumentError = function (err) {
+    if (err.isCanceled && err.pdf) {
+      err.pdf.destroy();
+    }
+    if (typeof _this4.props.onDocumentError === 'function') {
+      _this4.props.onDocumentError(err);
+    }
+  };
+
+  this.onPageComplete = function (page) {
+    _this4.setState({ page: page });
+    _this4.renderPdf();
+    var onPageComplete = _this4.props.onPageComplete;
+
+    if (typeof onPageComplete === 'function') {
+      onPageComplete(page.pageIndex + 1);
+    }
+  };
+
+  this.getDocument = function (val) {
+    if (_this4.documentPromise) {
+      _this4.documentPromise.cancel();
+    }
+    _this4.documentPromise = makeCancelable(PDFJS.getDocument(val).promise);
+    _this4.documentPromise.promise.then(_this4.onDocumentComplete).catch(_this4.onDocumentError);
+    return _this4.documentPromise;
+  };
+
+  this.loadPDFDocument = function (props) {
+    if (props.file) {
+      if (typeof props.file === 'string') {
+        // Is a URL
+        return _this4.getDocument(props.file);
+      }
+      // Is a File object
+      var reader = new FileReader();
+      reader.onloadend = function () {
+        return _this4.getDocument(new Uint8Array(reader.result));
+      };
+      reader.readAsArrayBuffer(props.file);
+    } else if (props.binaryContent) {
+      _this4.getDocument(props.binaryContent);
+    } else if (props.content) {
+      var bytes = window.atob(props.content);
+      var byteLength = bytes.length;
+      var byteArray = new Uint8Array(new ArrayBuffer(byteLength));
+      for (var index = 0; index < byteLength; index += 1) {
+        byteArray[index] = bytes.charCodeAt(index);
+      }
+      _this4.getDocument(byteArray);
+    } else {
+      throw new Error('Needs a file(URL) or (base64)content. At least one needs to be provided!');
+    }
+  };
+
+  this.renderPdf = function () {
+    //console.log('containerWidth', this.state.containerWidth);
+    //console.log('containerHeight', this.state.containerHeight);
+
+    var page = _this4.state.page;
+
+    if (page) {
+      var containerWidth = _this4.container.offsetWidth;
+      var containerHeight = _this4.container.offsetHeight;
+      var canvas = _this4.canvas;
+
+      var canvasContext = canvas.getContext('2d');
+      var dpiScale = window.devicePixelRatio || 1;
+
+      var unscaledViewport = page.getViewport(1.0);
+      var ratioViewport = unscaledViewport.width / unscaledViewport.height;
+      var ratioContainer = containerWidth / containerHeight;
+      var scale = ratioContainer >= ratioViewport ? containerHeight / unscaledViewport.height : containerWidth / unscaledViewport.width;
+
+      var adjustedScale = scale * dpiScale;
+      _this4.originalScale = adjustedScale;
+      var viewport = page.getViewport(adjustedScale);
+
+      canvas.style.width = viewport.width / dpiScale + 'px';
+      canvas.style.height = viewport.height / dpiScale + 'px';
+      canvas.style.left = 0 + 'px';
+      canvas.style.top = 0 + 'px';
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      _this4.rendering = true;
+      _this4.renderTask = page.render({ canvasContext: canvasContext, viewport: viewport });
+      _this4.renderTask.promise.then(function (result) {
+        _this4.rendering = false;
+      });
+      _this4.renderTask.promise.catch(function (reason) {
+        console.log("Rendering error:", reason);
+        _this4.rendering = false;
+      });
+    }
+  };
+};
+
 exports.default = PdfDocument;
 
 
@@ -7179,7 +7315,7 @@ var makeCancelable = function makeCancelable(promise) {
 
   var wrappedPromise = new Promise(function (resolve, reject) {
     promise.then(function (val) {
-      return hasCanceled ? reject({ pdf: val, isCanceled: true }) : resolve(val);
+      return hasCanceled ? reject({ isCanceled: true }) : resolve(val);
     });
     promise.catch(function (error) {
       return hasCanceled ? reject({ isCanceled: true }) : reject(error);
